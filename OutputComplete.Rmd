@@ -510,20 +510,20 @@ nrow(PeakFlowMetricsOutput$peak_RI_time3) > 0) {
 ## Stats DF Export
 ```{r Stats DF export, include=FALSE}
 # Writes stats DF to excel file
-# write_xlsx(list(IHAGroup1Mean  = IHAGroup1MeanStatsOutput,
-#                 IHAGroup1Median  = IHAGroup1MedianStatsOutput,
-#                 IHAGroup2  = IHAGroup2StatsOutput,
-#                 IHAGroup3 = IHAGroup3StatsOutput,
-#                 IHAGroup4  = IHAGroup4StatsOutput,
-#                 IHAGroup5  = IHAGroup5StatsOutput,
-#                 FieldMeasurements  = FieldMeasurementsStatsOutput,
-#                 MeasureOfCenter  = MeasureOfCenterStatsOutput,
-#                 PeakFlow  = PeakFlowStatsOutput,
-#                 HighFlow  = HighFlowStatsOutput,
-#                 RIFull = PeakFlowMetricsOutput$peak_RI_full,
-#                 RITime1 = PeakFlowMetricsOutput$peak_RI_time1,
-#                 RITime2 = PeakFlowMetricsOutput$peak_RI_time2,
-#                 RITime3 = PeakFlowMetricsOutput$peak_RI_time3,
-#                 SW2008 = SchmidtWilcock2008Metircs),
-#            path = stats_export_path)
+write_xlsx(list(IHAGroup1Mean  = IHAGroup1MeanStatsOutput,
+IHAGroup1Median  = IHAGroup1MedianStatsOutput,
+                 IHAGroup2  = IHAGroup2StatsOutput,
+                 IHAGroup3 = IHAGroup3StatsOutput,
+                 IHAGroup4  = IHAGroup4StatsOutput,
+                 IHAGroup5  = IHAGroup5StatsOutput,
+                 FieldMeasurements  = FieldMeasurementsStatsOutput,
+                 MeasureOfCenter  = MeasureOfCenterStatsOutput,
+                 PeakFlow  = PeakFlowStatsOutput,
+                 HighFlow  = HighFlowStatsOutput,
+                 RIFull = PeakFlowMetricsOutput$peak_RI_full,
+                 RITime1 = PeakFlowMetricsOutput$peak_RI_time1,
+                 RITime2 = PeakFlowMetricsOutput$peak_RI_time2,
+                 RITime3 = PeakFlowMetricsOutput$peak_RI_time3,
+                 SW2008 = SchmidtWilcock2008Metircs),
+            path = stats_export_path)
 ```
