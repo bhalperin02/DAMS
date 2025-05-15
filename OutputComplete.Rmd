@@ -1,0 +1,529 @@
+---
+title: "OutputComplete.R"
+output: pdf_document
+date: "2025-02-21"
+---
+
+## Setup
+
+```{r setup, echo=TRUE}
+knitr::opts_chunk$set(echo = TRUE)
+tinytex::install_tinytex()
+source('IHA/IHAPackages.r') # Inputs necessary packages
+IHAPackages() 
+```
+
+## User Inputs
+
+```{r UserInputs, echo=TRUE}
+gauge_number <- '02331000' # USGS gauge code
+gauge_name <- 'LEAF' # USGS gauge location name
+
+# Dates for analysis
+start_date <- as.Date('1940-02-21') # Date when gauge started recording
+break1_date <- as.Date('1950-03-01') # Date of end of time 1 and start of time 2
+break2_date <- as.Date('1956-02-01') # Date of end of time 2 and start of
+end_date <- as.Date('2025-03-07') # Current date or end of gauge record
+
+#Stats output location
+stats_export_path = 
+  'C:/Users/bhalperin/OneDrive - Bowdoin College/Bowdoin/Honors/DAMS Outputs/Raw Stats/Stats_Norcross.xlsx'
+
+# Years split into two different time periods
+inc_yr1 <- format(start_date, '%Y') 
+inc_yr2 <- format(break1_date, '%Y')
+inc_yr3 <- format(break2_date, '%Y')
+inc_yr4 <- format(end_date, '%Y')
+```
+
+## download streamgauge data and subset by date
+```{r StreamGaugeDownload, include=FALSE}
+# Stream gauge daily mean flow input 
+daily_flow <- readNWISdv(siteNumbers = gauge_number, parameterCd =  c('00060'))
+
+# Split daily flow into different time periods
+time1_daily_flow <- subset(daily_flow, Date >= start_date & Date < break1_date)
+time2_daily_flow <- subset(daily_flow, Date >= break1_date & Date < break2_date)
+time3_daily_flow <- subset(daily_flow, Date >= break2_date & Date < end_date)
+
+# Stream gauge field measurements input
+field_measurements <- readNWISmeas(siteNumbers = gauge_number, expanded = TRUE)
+gage_metadata <- readNWISsite(siteNumbers = gauge_number)
+
+# Split field measurements into different time periods
+full_field_measurements <- field_measurements
+time1_field_measurements <- subset(field_measurements, 
+                                   measurement_dt >= start_date & 
+                                     measurement_dt < break1_date)
+time2_field_measurements <- subset(field_measurements, 
+                                   measurement_dt >= break1_date &
+                                     measurement_dt < break2_date)
+time3_field_measurements <- subset(field_measurements, 
+                                   measurement_dt >= break2_date & 
+                                     measurement_dt < end_date)
+
+# Stream gauge annual peak flow input
+peak_flow <- readNWISpeak(siteNumbers = gauge_number)
+
+# Split annual peak flows into different time periods
+full_peak_flow <- peak_flow
+time1_peak_flow <- subset(peak_flow, peak_dt >= start_date &
+                            peak_dt < break1_date)
+time2_peak_flow <- subset(peak_flow, peak_dt >= break1_date &
+                            peak_dt < break2_date)
+time3_peak_flow <- subset(peak_flow, peak_dt >= break2_date &
+                            peak_dt < end_date)
+```
+
+## Daily flow to zoo for IHA
+```{r IHAZooObject, include=FALSE}
+# turn each time period of daily flow into zoo objects needed to run IHA package
+source('IHA/IHAZooObject.r')
+IHAZooObjectOutput <- IHAZooObject()
+```
+
+## IHA package functions
+```{r IHAFunctions, include=FALSE}
+# Extracts IHA indicies from each zoo object over all time periods
+source('IHA/IHAGroupPrep.r')
+IHAGroupPrepOutput <- IHAGroupPrep()
+```
+
+## Field Measurements Functions
+```{r FieldMeasurementFunctions, include=FALSE}
+source('Field Measurements/FieldMeasurementsMetrics.r')
+FieldMeasurementsMetricsOutput <- FieldMeasurementsMetrics()
+```
+
+## Annual Measure of Center Functions
+```{r AnnualMearsureofCenterFunctions, include=FALSE}
+source('Measure of Center/MeasureOfCenterMetrics.r')
+MeasureOfCenterMetricsOutput <- MeasureOfCenterMetrics()
+
+# remove incomplete years
+if (exists('MeasureOfCenterMetricsOutput$measure_of_center_metrics_full')) {
+    MeasureOfCenterMetricsOutput$measure_of_center_metrics_full =  
+      subset(MeasureOfCenterMetricsOutput$measure_of_center_metrics_full, 
+             as.numeric(inc_yr1) < year & year < as.numeric(inc_yr4))
+  }
+
+if (exists('MeasureOfCenterMetricsOutput$measure_of_center_metrics_time1')) {
+    MeasureOfCenterMetricsOutput$measure_of_center_metrics_time1 = 
+      subset(MeasureOfCenterMetricsOutput$measure_of_center_metrics_time1,
+             as.numeric(inc_yr1) < year & year < as.numeric(inc_yr2))
+}
+
+if (exists('MeasureOfCenterMetricsOutput$measure_of_center_metrics_time2')) {
+    MeasureOfCenterMetricsOutput$measure_of_center_metrics_time2 =
+      subset(MeasureOfCenterMetricsOutput$measure_of_center_metrics_time2, 
+             as.numeric(inc_yr2) < year & year < as.numeric(inc_yr3))
+}
+
+if (exists('MeasureOfCenterMetricsOutput$measure_of_center_metrics_time3')) {
+    MeasureOfCenterMetricsOutput$measure_of_center_metrics_time3 =
+      subset(MeasureOfCenterMetricsOutput$measure_of_center_metrics_time3,
+             as.numeric(inc_yr3) < year & year < as.numeric(inc_yr4))
+}
+
+```
+
+## Annual Peak Flow Functions
+```{r AnnualPeakFlowFunction, include=FALSE}
+## Annual peak flow recurrence interval
+source('Peak Flow/PeakFlowMetrics.r')
+PeakFlowMetricsOutput <- PeakFlowMetrics()
+
+# remove incomplete years
+if (exists("PeakFlowMetricsOutput$peak_RI_full")) {
+    PeakFlowMetricsOutput$peak_RI_full =  
+      subset(PeakFlowMetricsOutput$peak_RI_full, 
+             as.numeric(inc_yr1) < year & year < as.numeric(inc_yr4))
+  }
+
+if (exists("PeakFlowMetricsOutput$peak_RI_time1")) {
+    PeakFlowMetricsOutput$peak_RI_time1 = 
+      subset(PeakFlowMetricsOutput$peak_RI_time1,
+             as.numeric(inc_yr1) < year & year < as.numeric(inc_yr2))
+}
+
+if (exists("PeakFlowMetricsOutput$peak_RI_time2")) {
+    PeakFlowMetricsOutput$peak_RI_time2 =
+      subset(PeakFlowMetricsOutput$peak_RI_time2, 
+             as.numeric(inc_yr2) < year & year < as.numeric(inc_yr3))
+}
+
+if (exists("PeakFlowMetricsOutput$peak_RI_time3")) {
+    PeakFlowMetricsOutput$peak_RI_time3 =
+      subset(PeakFlowMetricsOutput$peak_RI_time3,
+             as.numeric(inc_yr3) < year & year < as.numeric(inc_yr4))
+}
+
+```
+
+## Annual High Flow Functions
+```{r AnnualHighFlowFunctions, include=FALSE}
+source('High Flow/HighFlowMetrics.r')
+HighFlowMetricsOutput <- HighFlowMetrics()
+
+# remove incomplete years
+if (exists('HighFlowMetricsOutput$high_flow_metrics_full')) {
+    HighFlowMetricsOutput$high_flow_metrics_full =  
+      subset(HighFlowMetricsOutput$high_flow_metrics_full, 
+             as.numeric(inc_yr1) < year & year < as.numeric(inc_yr4))
+}
+
+if (exists("HighFlowMetricsOutput$high_flow_metrics_time1")) {
+    HighFlowMetricsOutput$high_flow_metrics_time1 = 
+      subset(HighFlowMetricsOutput$high_flow_metrics_time1,
+             as.numeric(inc_yr1) < year & year < as.numeric(inc_yr2))
+}
+
+if (exists("HighFlowMetricsOutput$high_flow_metrics_time2")) {
+    HighFlowMetricsOutput$high_flow_metrics_time2 =
+      subset(HighFlowMetricsOutput$high_flow_metrics_time2, 
+             as.numeric(inc_yr3) < year & year < as.numeric(inc_yr3))
+}
+
+if (exists("HighFlowMetricsOutput$high_flow_metrics_time3")) {
+    HighFlowMetricsOutput$high_flow_metrics_time3 =
+      subset(HighFlowMetricsOutput$high_flow_metrics_time3,
+             as.numeric(inc_yr3) < year & year < as.numeric(inc_yr4))
+}
+```
+
+## IHA Manipulation and Visualization
+```{r IHAManipulationVisualization, echo=FALSE}
+# #  Visualized daily mean flow exceedence curves over all time periods
+# source('IHA/IHAExceedanceCurvesVisualization.r')
+# IHAExceedanceCurvesVisualizationOutput <- IHAExceedanceCurvesVisualization()
+
+# Manipulation required to visualize group 1 then visualization
+source('IHA/IHAGroup1ManipulationVisualization.r')
+IHAGroup1ManipulationVisualizationOutput <- IHAGroup1ManipulationVisualization()
+
+# Manipulation required to visualize group 2 then visualization
+source('IHA/IHAGroup2ManipulationVisualization.r')
+IHAGroup2ManipulationVisualizationOutput <- IHAGroup2ManipulationVisualization()
+
+# Manipulation required to visualize group 3 then visualization
+source('IHA/IHAGroup3ManipulationVisualization.r')
+IHAGroup3ManipulationVisualizationOutput <- IHAGroup3ManipulationVisualization()
+
+# Manipulation required to visualize group 4 then visualization
+source('IHA/IHAGroup4ManipulationVisualization.r')
+IHAGroup4ManipulationVisualizationOutput <- IHAGroup4ManipulationVisualization()
+
+# Manipulation required to visualize group 5 then visualization
+source('IHA/IHAGroup5ManipulationVisualization.r')
+IHAGroup5ManipulationVisualizationOutput <- IHAGroup5ManipulationVisualization()
+
+```
+
+## Field Measurements Manipulation and Visualization
+```{r FieldMeasurementsManipulationVisualization, echo=FALSE}
+source('Field Measurements/FieldMeasurementsManipulationVisualization.r')
+FieldMeasurementsManipulationVisualizationOutput <-
+  FieldMeasurementsManipulationVisualization()
+```
+
+## Measure of Center Manipulation and Visualization
+```{r MeasureOfCenterManipulationVisualization, echo=FALSE}
+source('Measure of Center/MeasureOfCenterManipulationVisualization.r')
+MeasureOfCenterManipulationVisualizationOutput <-
+  MeasureOfCenterManipulationVisualization()
+```
+
+## Peak Flow Manipulation and Visualization
+```{r PeakFlowManipulationVisualization, echo=FALSE}
+source('Peak Flow/PeakFlowManipulationVisualization.r')
+PeakFlowManipulationVisualizationOutput <- PeakFlowManipulationVisualization()
+```
+
+## Annual High Flow Manipulation and Visualization
+```{r HighFlowManipulationVisualization, echo=FALSE}
+source('High Flow/HighFlowManipulationVisualization.r')
+HighFlowManipulationVisualizationOutput <- HighFlowManipulationVisualization()
+```
+
+## IHA Prestatistical Analysis Manipulation
+```{r IHAPrestatisticalAnalysisManipulation, include=FALSE}
+# Convert matrix each metric output to a DF (Group 2 Output is already a DF)
+source('IHA/IHAMatrixToDF.R')
+
+# Group 1 Mean
+IHAGroup1MeanDFOutput <- IHAMatrixToDF(
+  full_matrix = IHAGroupPrepOutput$group1_mean_full,
+  time1_matrix = IHAGroupPrepOutput$group1_mean_time1,
+  time2_matrix = IHAGroupPrepOutput$group1_mean_time2,
+  time3_matrix = IHAGroupPrepOutput$group1_mean_time3)
+
+# Group 1 Median
+IHAGroup1MedianDFOutput <- IHAMatrixToDF(
+  full_matrix = IHAGroupPrepOutput$group1_median_full,
+  time1_matrix = IHAGroupPrepOutput$group1_median_time1,
+  time2_matrix = IHAGroupPrepOutput$group1_median_time2,
+  time3_matrix = IHAGroupPrepOutput$group1_median_time3)
+
+# Group 2 (this is here for consistent recall conventions)
+IHAGroup2DFOutput <- list(full_df = IHAGroupPrepOutput$group2_full, 
+                          time1_df = IHAGroupPrepOutput$group2_time1,
+                          time2_df = IHAGroupPrepOutput$group2_time2, 
+                          time3_df = IHAGroupPrepOutput$group2_time3)
+
+# Group 3
+IHAGroup3DFOutput <- IHAMatrixToDF(
+  full_matrix = IHAGroupPrepOutput$group3_full,
+  time1_matrix = IHAGroupPrepOutput$group3_time1,
+  time2_matrix = IHAGroupPrepOutput$group3_time2,
+  time3_matrix = IHAGroupPrepOutput$group3_time3)
+
+# Group 4
+IHAGroup4DFOutput <- IHAMatrixToDF(
+  full_matrix = IHAGroupPrepOutput$group4_full,
+  time1_matrix = IHAGroupPrepOutput$group4_time1,
+  time2_matrix = IHAGroupPrepOutput$group4_time2,
+  time3_matrix = IHAGroupPrepOutput$group4_time3)
+
+# Group 5
+IHAGroup5DFOutput <- IHAMatrixToDF(
+  full_matrix = IHAGroupPrepOutput$group5_full,
+  time1_matrix = IHAGroupPrepOutput$group5_time1,
+  time2_matrix = IHAGroupPrepOutput$group5_time2,
+  time3_matrix = IHAGroupPrepOutput$group5_time3)
+
+## Removal of inc years
+# Group 2
+IHAGroup2DFOutput$full_df = subset(IHAGroup2DFOutput$full_df, 
+                                   inc_yr1 < year & year < inc_yr4)
+IHAGroup2DFOutput$time1_df = subset(IHAGroup2DFOutput$full_df, 
+                                   inc_yr1 < year & year < inc_yr2)
+IHAGroup2DFOutput$time2_df = subset(IHAGroup2DFOutput$full_df, 
+                                   inc_yr2 < year & year < inc_yr3)
+IHAGroup2DFOutput$time3_df = subset(IHAGroup2DFOutput$full_df, 
+                                   inc_yr3 < year & year < inc_yr4)
+
+# Group 3
+IHAGroup3DFOutput$full_df = subset(IHAGroup3DFOutput$full_df, 
+                                   inc_yr1 < year & year < inc_yr4)
+IHAGroup3DFOutput$time1_df = subset(IHAGroup3DFOutput$full_df, 
+                                   inc_yr1 < year & year < inc_yr2)
+IHAGroup3DFOutput$time2_df = subset(IHAGroup3DFOutput$full_df, 
+                                   inc_yr2 < year & year < inc_yr3)
+IHAGroup3DFOutput$time3_df = subset(IHAGroup3DFOutput$full_df, 
+                                   inc_yr3 < year & year < inc_yr4)
+
+# Group 4
+IHAGroup4DFOutput$full_df = subset(IHAGroup4DFOutput$full_df, 
+                                   inc_yr1 < year & year < inc_yr4)
+IHAGroup4DFOutput$time1_df = subset(IHAGroup4DFOutput$full_df, 
+                                   inc_yr1 < year & year < inc_yr2)
+IHAGroup4DFOutput$time2_df = subset(IHAGroup4DFOutput$full_df, 
+                                   inc_yr2 < year & year < inc_yr3)
+IHAGroup4DFOutput$time3_df = subset(IHAGroup4DFOutput$full_df, 
+                                   inc_yr3 < year & year < inc_yr4)
+
+# Group 5
+IHAGroup5DFOutput$full_df = subset(IHAGroup5DFOutput$full_df, 
+                                   inc_yr1 < year & year < inc_yr4)
+IHAGroup5DFOutput$time1_df = subset(IHAGroup5DFOutput$full_df, 
+                                   inc_yr1 < year & year < inc_yr2)
+IHAGroup5DFOutput$time2_df = subset(IHAGroup5DFOutput$full_df, 
+                                   inc_yr2 < year & year < inc_yr3)
+IHAGroup5DFOutput$time3_df = subset(IHAGroup5DFOutput$full_df, 
+                                   inc_yr3 < year & year < inc_yr4)
+
+# # Remove zero flow days from group 2 and DF is still stored in (NEED TO TURN 
+# # THIS INTO A SWITCH)
+if (all(IHAGroup2DFOutput$full_df[['Zero flow days']] == 0)) {
+  IHAGroup2DFOutput$full_df = subset(IHAGroup2DFOutput$full_df,
+                                         select = -c(`Zero flow days`))
+  IHAGroup2DFOutput$time1_df = subset(IHAGroup2DFOutput$time1_df,
+                                         select = -c(`Zero flow days`))
+  IHAGroup2DFOutput$time2_df = subset(IHAGroup2DFOutput$time2_df,
+                                         select = -c(`Zero flow days`))
+  IHAGroup2DFOutput$time3_df = subset(IHAGroup2DFOutput$time3_df,
+                                         select = -c(`Zero flow days`))
+}
+
+```
+
+## DF Stats Create
+```{r DFStatsCreate, include=FALSE}
+# Create DFs that hold all stats for all metrics
+source('General/StatsDFCreate.r')
+StatsDFCreateOutput <- StatsDFCreate()
+```
+
+## IHA Stats
+```{r IHAStats, include=FALSE}
+## Group 1, 2, 4, 5 stats
+
+# Full Stats calculation for groups 1,2,4,5 (MUST ADD LABELS STILL)
+source('General/FullStats.r')
+
+IHAGroup1MeanStatsOutput <- FullStats(
+  statsDF = StatsDFCreateOutput$group1_mean_stats,
+  inp1 = IHAGroup1MeanDFOutput$time1_df,
+  inp2 = IHAGroup1MeanDFOutput$time2_df,
+  inp3 = IHAGroup1MeanDFOutput$time3_df)
+
+IHAGroup1MedianStatsOutput <- FullStats(
+  statsDF = StatsDFCreateOutput$group1_median_stats,
+  inp1 = IHAGroup1MedianDFOutput$time1_df,
+  inp2 = IHAGroup1MedianDFOutput$time2_df,
+  inp3 = IHAGroup1MedianDFOutput$time3_df)
+
+IHAGroup2StatsOutput <- FullStats(
+  statsDF = StatsDFCreateOutput$group2_stats,
+  inp1 = IHAGroup2DFOutput$time1_df,
+  inp2 = IHAGroup2DFOutput$time2_df,
+  inp3 = IHAGroup2DFOutput$time3_df)
+
+IHAGroup4StatsOutput <- FullStats(
+  statsDF = StatsDFCreateOutput$group4_stats,
+  inp1 = IHAGroup4DFOutput$time1_df,
+  inp2 = IHAGroup4DFOutput$time2_df,
+  inp3 = IHAGroup4DFOutput$time3_df)
+
+IHAGroup5StatsOutput <- FullStats(
+  statsDF = StatsDFCreateOutput$group5_stats,
+  inp1 = IHAGroup5DFOutput$time1_df,
+  inp2 = IHAGroup5DFOutput$time2_df,
+  inp3 = IHAGroup5DFOutput$time3_df)
+
+# to export as excel look at read_xl from tidyverse
+print(IHAGroup1MeanStatsOutput)
+print(IHAGroup1MedianStatsOutput)
+print(IHAGroup2StatsOutput)
+print(IHAGroup4StatsOutput)
+print(IHAGroup5StatsOutput)
+```
+
+## IHA Group 3 Stats
+```{r IHAG3Stats, include=FALSE}
+### Group 3 stats
+## Add radians based on Julian Day to group 3 data frame stored in
+## IHAGroupPrepOutput
+source('IHA/IHAGroup3AddRadians.r')
+IHAGroup3AddRadiansOutput <- IHAGroup3AddRadians()
+
+## Function to calculate Group 3 mean and SD
+source('IHA/IHAGroup3MeanSDCalculation.r')
+
+## Calculate mean and SD for different times
+#full time
+IHAGroup3StatsOutput <- IHAGroup3MeanSDCalculation(
+  statsDF = StatsDFCreateOutput$group3_stats,
+  inp1 =  IHAGroup3AddRadiansOutput$full_df,
+  inp2 = IHAGroup3AddRadiansOutput$time1_df,
+  inp3 = IHAGroup3AddRadiansOutput$time2_df,
+  inp4 = IHAGroup3AddRadiansOutput$time3_df)
+
+## Print
+print(IHAGroup3StatsOutput)
+```
+
+## Field Measurements Manipulation and Stats
+```{r FieldMeasurementsManipulationAndStats, include=FALSE}
+source('Field Measurements/FieldMeasurementsPrestatsManipulation.r')
+FieldMeasurementsPrestatsManipulationOutput <- 
+  FieldMeasurementsPrestatsManipulation()
+
+FieldMeasurementsStatsOutput <- FullStats(
+  statsDF = StatsDFCreateOutput$field_measurements_stats,
+  inp1 = FieldMeasurementsPrestatsManipulationOutput$
+    field_measurements_prestats_manipulation_time1,
+  inp2 = FieldMeasurementsPrestatsManipulationOutput$
+    field_measurements_prestats_manipulation_time2,
+  inp3 = FieldMeasurementsPrestatsManipulationOutput$
+    field_measurements_prestats_manipulation_time3)
+
+print(FieldMeasurementsStatsOutput)
+```
+
+## Measure of Center Stats
+```{r MeasureOfCenterStats, include=FALSE}
+MeasureOfCenterStatsOutput <- FullStats(
+  statsDF = StatsDFCreateOutput$measure_of_center_stats,
+  inp1 = MeasureOfCenterMetricsOutput$measure_of_center_metrics_time1,
+  inp2 = MeasureOfCenterMetricsOutput$measure_of_center_metrics_time2,
+  inp3 = MeasureOfCenterMetricsOutput$measure_of_center_metrics_time3)
+
+print(MeasureOfCenterStatsOutput)
+```
+
+## Peak Flow Manipulation and Stats
+```{r PeakFlowManipulationAndStats, include=FALSE}
+source('Peak Flow/PeakFlowPrestatsManipulation.r')
+PeakFlowPrestatsManipulationOutput <- 
+  PeakFlowPrestatsManipulation()
+
+PeakFlowStatsOutput <- FullStats(
+  statsDF = StatsDFCreateOutput$peak_flow_stats,
+  inp1 = PeakFlowPrestatsManipulationOutput$
+    peak_flow_prestats_manipulation_time1,
+  inp2 = PeakFlowPrestatsManipulationOutput$
+    peak_flow_prestats_manipulation_time2,
+  inp3 = PeakFlowPrestatsManipulationOutput$
+    peak_flow_prestats_manipulation_time3)
+
+print(PeakFlowStatsOutput)
+```
+
+## High Flow Stats
+```{r HighFlowStats, include=FALSE}
+HighFlowStatsOutput <- FullStats(
+  statsDF = StatsDFCreateOutput$high_flow_stats,
+  inp1 = HighFlowMetricsOutput$high_flow_metrics_time1,
+  inp2 = HighFlowMetricsOutput$high_flow_metrics_time2,
+  inp3 = HighFlowMetricsOutput$high_flow_metrics_time3)
+
+print(HighFlowStatsOutput)
+```
+
+## Schmidt and Wilcock 2008 Metrics
+```{r SchmidtAndWilcock2008Metrics, echo=FALSE}
+# create SchmidtWilcock2008Metrics DF
+SchmidtWilcock2008Metircs <- data.frame(matrix(nrow = 1))
+SchmidtWilcock2008Metircs <- SchmidtWilcock2008Metircs[ , NULL]
+
+# Flood Magnitude Reduction (Ratio of 2 year flood RI)
+if (nrow(PeakFlowMetricsOutput$peak_RI_time1) > 0 & 
+nrow(PeakFlowMetricsOutput$peak_RI_time3) > 0) {
+  #time 1 2 year flood RI
+  two_year_flood_RI_time1 <- PeakFlowMetricsOutput$peak_RI_time1$peak_va[
+    which.min(abs(PeakFlowMetricsOutput$peak_RI_time1$RI - 2))]
+
+  #time 3 2 year flood RI
+  two_year_flood_RI_time3 <- PeakFlowMetricsOutput$peak_RI_time3$peak_va[
+    which.min(abs(PeakFlowMetricsOutput$peak_RI_time3$RI - 2))]
+
+  #flood magnitude reduction calculation
+  FloodMagnutideReduction <- two_year_flood_RI_time1/two_year_flood_RI_time3
+  
+  SchmidtWilcock2008Metircs$FloodMagnutideReduction <- FloodMagnutideReduction
+
+}
+```
+
+
+## Stats DF Export
+```{r Stats DF export, include=FALSE}
+# Writes stats DF to excel file
+# write_xlsx(list(IHAGroup1Mean  = IHAGroup1MeanStatsOutput,
+#                 IHAGroup1Median  = IHAGroup1MedianStatsOutput,
+#                 IHAGroup2  = IHAGroup2StatsOutput,
+#                 IHAGroup3 = IHAGroup3StatsOutput,
+#                 IHAGroup4  = IHAGroup4StatsOutput,
+#                 IHAGroup5  = IHAGroup5StatsOutput,
+#                 FieldMeasurements  = FieldMeasurementsStatsOutput,
+#                 MeasureOfCenter  = MeasureOfCenterStatsOutput,
+#                 PeakFlow  = PeakFlowStatsOutput,
+#                 HighFlow  = HighFlowStatsOutput,
+#                 RIFull = PeakFlowMetricsOutput$peak_RI_full,
+#                 RITime1 = PeakFlowMetricsOutput$peak_RI_time1,
+#                 RITime2 = PeakFlowMetricsOutput$peak_RI_time2,
+#                 RITime3 = PeakFlowMetricsOutput$peak_RI_time3,
+#                 SW2008 = SchmidtWilcock2008Metircs),
+#            path = stats_export_path)
+```
